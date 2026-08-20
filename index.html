@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Генератор тестовых данных</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --canvas: #f7f7f5;
+      --surface: #ffffff;
+      --text: #2c2c2b;
+      --muted: #6f6c67;
+      --border: #e2e1df;
+      --accent: #2783de;
+      --accent-hover: #1f6fbe;
+      --soft-blue: #e5f2fc;
+      --success: #2f8059;
+      --error: #c8493f;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--canvas);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 16px;
+      line-height: 1.5;
+    }
+    .container { width: min(1120px, calc(100% - 48px)); margin: 0 auto; padding: 48px 0; }
+    header { margin-bottom: 28px; }
+    h1 { margin: 0 0 8px; font-size: clamp(28px, 4vw, 42px); letter-spacing: -0.03em; }
+    header p { margin: 0; color: var(--muted); }
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+    .controls { display: grid; grid-template-columns: 180px 1fr auto; gap: 20px; align-items: end; }
+    label, .label { display: block; margin-bottom: 8px; font-weight: 650; }
+    input[type="number"] {
+      width: 100%; height: 44px; padding: 0 12px;
+      border: 1px solid var(--border); border-radius: 8px;
+      background: var(--surface); color: var(--text); font: inherit;
+    }
+    .check-wrap { min-height: 44px; display: flex; align-items: center; gap: 10px; }
+    input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--accent); }
+    button {
+      min-height: 44px; border: 1px solid transparent; border-radius: 8px;
+      padding: 0 18px; font: inherit; font-weight: 650; cursor: pointer;
+    }
+    button:focus-visible, input:focus-visible { outline: 3px solid var(--soft-blue); outline-offset: 2px; }
+    .primary { background: var(--accent); color: white; }
+    .primary:hover { background: var(--accent-hover); }
+    .secondary { background: var(--surface); border-color: var(--border); color: var(--text); }
+    .secondary:hover { background: var(--canvas); }
+    .result-head { display: flex; justify-content: space-between; gap: 16px; align-items: center; margin-bottom: 16px; }
+    h2 { font-size: 21px; margin: 0; }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .table-wrap { overflow: auto; border: 1px solid var(--border); border-radius: 8px; }
+    table { width: 100%; min-width: 950px; border-collapse: collapse; }
+    th, td { padding: 11px 12px; border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; }
+    th { background: var(--canvas); color: var(--muted); font-size: 14px; }
+    tr:last-child td { border-bottom: 0; }
+    .empty { padding: 48px 20px; text-align: center; color: var(--muted); }
+    .status { min-height: 24px; margin-top: 12px; color: var(--success); }
+    .status.error { color: var(--error); }
+    .hidden { display: none; }
+    @media (max-width: 760px) {
+      .container { width: min(100% - 32px, 1120px); padding: 28px 0; }
+      .panel { padding: 18px; }
+      .controls { grid-template-columns: 1fr; gap: 14px; }
+      .primary { width: 100%; }
+      .result-head { align-items: flex-start; flex-direction: column; }
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --canvas: #191919; --surface: #202020; --text: #ffffff;
+        --muted: rgba(255,255,255,.65); --border: rgba(255,255,255,.2);
+        --accent: #5e9fe8; --accent-hover: #78afea; --soft-blue: rgba(94,159,232,.18);
+        --success: #72bc8f; --error: #e97366;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <header>
+      <h1>Генератор тестовых данных</h1>
+      <p>Создавайте корректные и ошибочные данные для проверки приложений.</p>
+    </header>
+
+    <section class="panel" aria-labelledby="settings-title">
+      <h2 id="settings-title" class="hidden">Параметры</h2>
+      <div class="controls">
+        <div>
+          <label for="count">Количество записей</label>
+          <input id="count" type="number" min="1" max="1000" value="10">
+        </div>
+        <div>
+          <span class="label">Тип данных</span>
+          <label class="check-wrap">
+            <input id="invalid" type="checkbox">
+            Добавить намеренные ошибки
+          </label>
+        </div>
+        <button id="generate" class="primary" type="button">Создать данные</button>
+      </div>
+      <div id="status" class="status" role="status" aria-live="polite"></div>
+    </section>
+
+    <section class="panel" aria-labelledby="result-title">
+      <div class="result-head">
+        <h2 id="result-title">Предпросмотр</h2>
+        <div id="actions" class="actions hidden">
+          <button id="json" class="secondary" type="button">Скачать JSON</button>
+          <button id="csv" class="secondary" type="button">Скачать CSV</button>
+        </div>
+      </div>
+      <div id="empty" class="empty">Здесь появятся созданные записи</div>
+      <div id="table-wrap" class="table-wrap hidden">
+        <table>
+          <thead><tr><th>Имя</th><th>Фамилия</th><th>Email</th><th>Телефон</th><th>Логин</th><th>Пароль</th><th>Тип</th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    let users = [];
+    const fields = ['first_name', 'last_name', 'email', 'phone', 'username', 'password', 'data_type'];
+    const escapeHtml = value => String(value).replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
+
+    document.getElementById('generate').addEventListener('click', async () => {
+      const count = Number(document.getElementById('count').value);
+      const status = document.getElementById('status');
+      status.className = 'status';
+      status.textContent = 'Создаём данные…';
+      try {
+        const response = await fetch('/api/generate', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({count, invalid: document.getElementById('invalid').checked})
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Не удалось создать данные');
+        users = data.users;
+        document.getElementById('rows').innerHTML = users.slice(0, 100).map(user =>
+          `<tr>${fields.map(field => `<td>${escapeHtml(user[field])}</td>`).join('')}</tr>`
+        ).join('');
+        document.getElementById('empty').classList.add('hidden');
+        document.getElementById('table-wrap').classList.remove('hidden');
+        document.getElementById('actions').classList.remove('hidden');
+        status.textContent = `Готово: создано записей — ${users.length}`;
+      } catch (error) {
+        status.className = 'status error';
+        status.textContent = error.message;
+      }
+    });
+
+    function download(content, filename, type) {
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(new Blob([content], {type}));
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(link.href);
+    }
+
+    document.getElementById('json').addEventListener('click', () => {
+      download(JSON.stringify(users, null, 2), 'test_users.json', 'application/json');
+    });
+
+    document.getElementById('csv').addEventListener('click', () => {
+      const quote = value => `"${String(value).replaceAll('"', '""')}"`;
+      const csv = [fields.join(','), ...users.map(user => fields.map(field => quote(user[field])).join(','))].join('\n');
+      download('\ufeff' + csv, 'test_users.csv', 'text/csv;charset=utf-8');
+    });
+  </script>
+</body>
+</html>
